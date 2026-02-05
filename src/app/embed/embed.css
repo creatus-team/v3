@@ -1,0 +1,27 @@
+/* src/app/embed/embed.css */
+
+/* 전체 페이지 스크롤 막기 */
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+/* 임베드 컨테이너 */
+.embed-container {
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 스크롤바 숨기기 (모든 요소) */
+*::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
