@@ -14,6 +14,20 @@ export async function GET(req: Request) {
   const coachId = searchParams.get('coachId');
   const tab = searchParams.get('tab'); // 'today' | 'students' | 'slots' | 'student-detail'
 
+  // student-detail은 coachId 불필요 (userId로만 조회)
+  if (tab === 'student-detail') {
+    const userId = searchParams.get('userId');
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+    try {
+      return await handleStudentDetail(supabase, userId);
+    } catch (error) {
+      console.error('임베드 API 오류:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
+  }
+
   if (!coachId || !tab) {
     return NextResponse.json({ error: 'coachId and tab are required' }, { status: 400 });
   }
@@ -26,13 +40,6 @@ export async function GET(req: Request) {
         return await handleStudents(supabase, coachId);
       case 'slots':
         return await handleSlots(supabase, coachId);
-      case 'student-detail': {
-        const userId = searchParams.get('userId');
-        if (!userId) {
-          return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-        }
-        return await handleStudentDetail(supabase, userId);
-      }
       default:
         return NextResponse.json({ error: 'Invalid tab' }, { status: 400 });
     }
@@ -46,6 +53,11 @@ export async function GET(req: Request) {
 async function handleToday(supabase: any, coachId: string) {
   const today = dayjs().tz('Asia/Seoul').format('YYYY-MM-DD');
   const todayDayOfWeek = ['일', '월', '화', '수', '목', '금', '토'][dayjs().tz('Asia/Seoul').day()];
+
+  const dayIndexMap: Record<string, number> = {
+    '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6
+  };
+  const todayDayIndex = dayIndexMap[todayDayOfWeek];
 
   const { data: sessions, error } = await supabase
     .from('sessions')
@@ -74,20 +86,19 @@ async function handleToday(supabase: any, coachId: string) {
 
     const user = Array.isArray(session.user) ? session.user[0] : session.user;
 
-    // completedLessons 계산
+    // completedLessons 계산 (dayjs 통일)
     let completedLessons = 0;
-    const startDate = new Date(session.start_date);
-    const todayDate = new Date(dayjs().tz('Asia/Seoul').format('YYYY-MM-DD'));
-    const todayDayIndex = todayDate.getDay();
-    let checkDate = new Date(startDate);
-    while (checkDate <= todayDate) {
-      if (checkDate.getDay() === todayDayIndex) {
-        const dateStr = checkDate.toISOString().split('T')[0];
+    const start = dayjs(session.start_date).tz('Asia/Seoul').startOf('day');
+    const todayDate = dayjs().tz('Asia/Seoul').startOf('day');
+    let check = start;
+    while (check.isBefore(todayDate) || check.isSame(todayDate, 'day')) {
+      if (check.day() === todayDayIndex) {
+        const dateStr = check.format('YYYY-MM-DD');
         if (!postponedDates.includes(dateStr)) {
           completedLessons++;
         }
       }
-      checkDate.setDate(checkDate.getDate() + 1);
+      check = check.add(1, 'day');
     }
 
     lessons.push({
@@ -108,6 +119,9 @@ async function handleToday(supabase: any, coachId: string) {
 
 // 수강생 목록 조회
 async function handleStudents(supabase: any, coachId: string) {
+  // 현재 활성 수강생 + 최근 60일 이내 종료된 수강생 모두 조회
+  const sixtyDaysAgo = dayjs().tz('Asia/Seoul').subtract(60, 'day').format('YYYY-MM-DD');
+
   const { data: sessions, error } = await supabase
     .from('sessions')
     .select(`
@@ -124,34 +138,35 @@ async function handleStudents(supabase: any, coachId: string) {
       user_activity_logs(created_at, action_type, reason, metadata)
     `)
     .eq('coach_id', coachId)
-    .in('status', ['ACTIVE', 'PENDING'])
+    .gte('end_date', sixtyDaysAgo)
     .order('end_date', { ascending: true });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const dayIndexMap: Record<string, number> = {
+    '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6
+  };
+
   const students = (sessions || []).map((session: any) => {
     const user = Array.isArray(session.user) ? session.user[0] : session.user;
 
-    // completedLessons 계산 (4주 중 몇 회 수업했는지)
+    // completedLessons 계산 (dayjs 통일)
     let completedLessons = 0;
-    const dayIndexMap: Record<string, number> = {
-      '일': 0, '월': 1, '화': 2, '수': 3, '목': 4, '금': 5, '토': 6
-    };
     const sessionDayIndex = dayIndexMap[session.day_of_week] ?? 0;
     const postponedDates = (session.postponements || []).map((p: any) => p.postponed_date);
-    const startDate = new Date(session.start_date);
-    const today = new Date(dayjs().tz('Asia/Seoul').format('YYYY-MM-DD'));
-    let checkDate = new Date(startDate);
-    while (checkDate <= today) {
-      if (checkDate.getDay() === sessionDayIndex) {
-        const dateStr = checkDate.toISOString().split('T')[0];
+    const start = dayjs(session.start_date).tz('Asia/Seoul').startOf('day');
+    const today = dayjs().tz('Asia/Seoul').startOf('day');
+    let check = start;
+    while (check.isBefore(today) || check.isSame(today, 'day')) {
+      if (check.day() === sessionDayIndex) {
+        const dateStr = check.format('YYYY-MM-DD');
         if (!postponedDates.includes(dateStr)) {
           completedLessons++;
         }
       }
-      checkDate.setDate(checkDate.getDate() + 1);
+      check = check.add(1, 'day');
     }
 
     return {

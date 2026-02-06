@@ -40,16 +40,17 @@ interface StudentDetailProps {
   getActionLabel: (actionType: string) => string;
 }
 
-export function StudentDetail({ 
-  student, 
-  onBack, 
-  formatPhone, 
-  formatDate, 
-  getDday, 
-  getActionLabel 
+export function StudentDetail({
+  student,
+  onBack,
+  formatPhone,
+  formatDate,
+  getDday,
+  getActionLabel
 }: StudentDetailProps) {
   const [allLogs, setAllLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchAllLogs();
@@ -57,24 +58,31 @@ export function StudentDetail({
 
   const fetchAllLogs = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/embed/coach?coachId=_&tab=student-detail&userId=${student.userId}`);
+      const res = await fetch(`/api/embed/coach?tab=student-detail&userId=${student.userId}`);
       const data = await res.json();
       if (data.success) {
         setAllLogs(data.data);
+      } else {
+        setError(data.error || '히스토리를 불러오지 못했습니다');
       }
-    } catch (error) {
-      console.error('히스토리 조회 오류:', error);
+    } catch (err) {
+      console.error('히스토리 조회 오류:', err);
+      setError('네트워크 오류가 발생했습니다');
     } finally {
       setLoading(false);
     }
   };
 
+  const dday = getDday(student.endDate);
+  const lastLessonDate = dayjs(student.endDate).tz('Asia/Seoul').subtract(6, 'day').format('YYYY-MM-DD');
+
   return (
     <div className="space-y-3">
-      <Button 
-        variant="ghost" 
-        size="sm" 
+      <Button
+        variant="ghost"
+        size="sm"
         onClick={onBack}
         className="text-slate-600 -ml-2"
       >
@@ -109,11 +117,11 @@ export function StudentDetail({
               </div>
               <div className="flex items-center gap-1">
                 <Calendar className="w-3 h-3 text-slate-400" />
-                <span>{formatDate(student.startDate)} ~ {formatDate(dayjs(student.endDate).subtract(6, 'day').format('YYYY-MM-DD'))}</span>
+                <span>{formatDate(student.startDate)} ~ {formatDate(lastLessonDate)}</span>
               </div>
               <div>
-                <Badge className={getDday(student.endDate) === '종료' ? 'bg-slate-100 text-slate-600' : 'bg-violet-100 text-violet-700'}>
-                  {getDday(student.endDate)}
+                <Badge className={dday.startsWith('D+') ? 'bg-slate-100 text-slate-600' : 'bg-violet-100 text-violet-700'}>
+                  {dday}
                 </Badge>
               </div>
             </div>
@@ -140,14 +148,16 @@ export function StudentDetail({
               <div className="flex justify-center py-2">
                 <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
               </div>
+            ) : error ? (
+              <p className="text-sm text-red-500">{error}</p>
             ) : allLogs.length > 0 ? (
               <div className="space-y-1">
                 {allLogs.map((log, idx) => {
                   // ENROLL/RENEWAL은 결제일 표시, 나머지는 처리일 (관리자 대시보드와 동일)
                   const displayDate = (log.action_type === 'ENROLL' || log.action_type === 'RENEWAL')
                     && log.metadata && log.metadata.paymentDate
-                    ? dayjs(log.metadata.paymentDate as string).format('M/D')
-                    : dayjs(log.created_at).format('M/D');
+                    ? dayjs(log.metadata.paymentDate as string).tz('Asia/Seoul').format('M/D')
+                    : dayjs(log.created_at).tz('Asia/Seoul').format('M/D');
                   return (
                   <div key={idx} className="text-sm text-slate-600 flex items-center gap-2">
                     <span className="text-slate-400">{displayDate}</span>
