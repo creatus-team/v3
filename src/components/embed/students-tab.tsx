@@ -99,9 +99,9 @@ export function StudentsTab({ coachId }: StudentsTabProps) {
       CANCELLED: '취소',
       REFUNDED: '환불',
       EARLY_TERMINATED: '조기종료',
-      COMPLETED: '종료',
+      EXPIRED: '종료',
     };
-    return labels[status] || '종료';
+    return labels[status] || status;
   };
 
   if (loading) {
@@ -146,7 +146,7 @@ export function StudentsTab({ coachId }: StudentsTabProps) {
   return (
     <div className="space-y-3">
       <div className="text-sm text-slate-600 font-medium">
-        \uD83D\uDC65 내 수강생 ({activeStudents.length}명)
+        👥 내 수강생 ({activeStudents.length}명)
       </div>
 
       {activeStudents.length === 0 ? (
@@ -194,34 +194,30 @@ export function StudentsTab({ coachId }: StudentsTabProps) {
             이전 수강생 ({pastStudents.length}명)
           </div>
           <div className="space-y-2">
-            {pastStudents.map((student) => {
-              const dday = getDday(student.endDate);
-              return (
-                <Card
-                  key={student.sessionId}
-                  className="cursor-pointer hover:bg-slate-50 transition-colors opacity-60"
-                  onClick={() => setSelectedStudent(student)}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="font-medium text-slate-500">{student.name}</div>
-                        <div className="text-sm text-slate-400">
-                          {student.dayOfWeek} {student.startTime}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge className="bg-slate-100 text-slate-500">
-                          {getStatusLabel(student.status)}
-                        </Badge>
-                        <span className="text-xs text-slate-400">{dday}</span>
-                        <ChevronRight className="w-4 h-4 text-slate-300" />
+            {pastStudents.map((student) => (
+              <Card
+                key={student.sessionId}
+                className="cursor-pointer hover:bg-slate-50 transition-colors opacity-60"
+                onClick={() => setSelectedStudent(student)}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="font-medium text-slate-500">{student.name}</div>
+                      <div className="text-sm text-slate-400">
+                        {student.dayOfWeek} {student.startTime}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-slate-100 text-slate-500">
+                        {getStatusLabel(student.status)}
+                      </Badge>
+                      <ChevronRight className="w-4 h-4 text-slate-300" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </>
       )}
