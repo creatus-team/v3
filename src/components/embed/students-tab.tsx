@@ -1,4 +1,3 @@
-// src/components/embed/students-tab.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -64,7 +63,8 @@ export function StudentsTab({ coachId }: StudentsTabProps) {
   const getDday = (endDate: string) => {
     // 마지막 수업일 = end_date - 6일
     const lastLesson = dayjs(endDate).subtract(6, 'day');
-    const diff = lastLesson.diff(dayjs(), 'day');
+    const today = dayjs().tz('Asia/Seoul').startOf('day');
+    const diff = lastLesson.diff(today, 'day');
     if (diff < 0) return '종료';
     if (diff === 0) return 'D-Day';
     return `D-${diff}`;
