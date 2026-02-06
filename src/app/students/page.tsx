@@ -45,10 +45,9 @@ async function getStudentsData() {
 
     if (activeSession) {
       displayStatus = 'active';
-      const endDate = new Date(activeSession.end_date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      dDay = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      const lastLessonDate = dayjs(activeSession.end_date).subtract(6, 'day');
+      const today = dayjs().tz('Asia/Seoul').startOf('day');
+      dDay = lastLessonDate.diff(today, 'day');
     } else if (pendingSession) {
       displayStatus = 'pending';
     } else if (currentSession) {
