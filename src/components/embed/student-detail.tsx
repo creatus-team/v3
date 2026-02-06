@@ -119,11 +119,13 @@ export function StudentDetail({
                 <Calendar className="w-3 h-3 text-slate-400" />
                 <span>{formatDate(student.startDate)} ~ {formatDate(lastLessonDate)}</span>
               </div>
+              {(student.status === 'ACTIVE' || student.status === 'PENDING') && (
               <div>
                 <Badge className={dday.startsWith('D+') ? 'bg-slate-100 text-slate-600' : 'bg-violet-100 text-violet-700'}>
                   {dday}
                 </Badge>
               </div>
+              )}
             </div>
           </div>
 

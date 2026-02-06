@@ -64,7 +64,7 @@ async function getStudentsData() {
 
     // completedLessons 계산 (4주 중 몇 회 수업했는지)
     let completedLessons = 0;
-    if (currentSession && (currentSession.status === 'ACTIVE' || currentSession.status === 'PENDING')) {
+    if (currentSession) {
       const startDate = new Date(currentSession.start_date);
       const today = new Date(dayjs().tz('Asia/Seoul').format('YYYY-MM-DD'));
       const dayIndexMap: Record<string, number> = {
@@ -74,8 +74,26 @@ async function getStudentsData() {
       const postponedDates = currentSession.postponements?.map(
         (p: { postponed_date: string }) => p.postponed_date
       ) || [];
+
+      // 종료된 세션은 실제 종료 시점까지만 카운팅
+      let endBound = today;
+      if (currentSession.status !== 'ACTIVE' && currentSession.status !== 'PENDING') {
+        const terminatingActions = ['CANCEL', 'REFUND', 'EARLY_TERMINATE'];
+        const logs = user.activity_logs || [];
+        const terminationLog = logs
+          .filter((log: any) => terminatingActions.includes(log.action_type))
+          .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+
+        if (terminationLog) {
+          endBound = new Date(dayjs(terminationLog.created_at).tz('Asia/Seoul').format('YYYY-MM-DD'));
+        } else {
+          endBound = new Date(dayjs(currentSession.end_date).subtract(6, 'day').format('YYYY-MM-DD'));
+        }
+        if (endBound > today) endBound = today;
+      }
+
       let checkDate = new Date(startDate);
-      while (checkDate <= today) {
+      while (checkDate <= endBound) {
         if (checkDate.getDay() === sessionDayIndex) {
           const dateStr = checkDate.toISOString().split('T')[0];
           if (!postponedDates.includes(dateStr)) {
