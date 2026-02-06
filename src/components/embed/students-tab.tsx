@@ -205,7 +205,7 @@ export function StudentsTab({ coachId }: StudentsTabProps) {
                     <div className="flex-1">
                       <div className="font-medium text-slate-500">{student.name}</div>
                       <div className="text-sm text-slate-400">
-                        {student.dayOfWeek} {student.startTime}
+                        {student.dayOfWeek} {student.startTime} · 수업완료: {student.completedLessons}/4
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

@@ -158,8 +158,30 @@ async function handleStudents(supabase: any, coachId: string) {
     const postponedDates = (session.postponements || []).map((p: any) => p.postponed_date);
     const start = dayjs(session.start_date).tz('Asia/Seoul').startOf('day');
     const today = dayjs().tz('Asia/Seoul').startOf('day');
+
+    // 종료된 세션은 실제 종료 시점까지만 카운팅
+    let endBound = today;
+    if (session.status !== 'ACTIVE' && session.status !== 'PENDING') {
+      const terminatingActions = ['CANCEL', 'REFUND', 'EARLY_TERMINATE'];
+      const terminationLog = (session.user_activity_logs || [])
+        .filter((log: any) => terminatingActions.includes(log.action_type))
+        .sort((a: any, b: any) => dayjs(b.created_at).valueOf() - dayjs(a.created_at).valueOf())[0];
+
+      if (terminationLog) {
+        // 취소/환불/조기종료 → 해당 액션 날짜까지만
+        endBound = dayjs(terminationLog.created_at).tz('Asia/Seoul').startOf('day');
+      } else {
+        // 자연 만료(EXPIRED) → 마지막 수업일까지
+        endBound = dayjs(session.end_date).tz('Asia/Seoul').subtract(6, 'day').startOf('day');
+      }
+      // 안전장치: 미래 날짜면 오늘로 캡
+      if (endBound.isAfter(today)) {
+        endBound = today;
+      }
+    }
+
     let check = start;
-    while (check.isBefore(today) || check.isSame(today, 'day')) {
+    while (check.isBefore(endBound) || check.isSame(endBound, 'day')) {
       if (check.day() === sessionDayIndex) {
         const dateStr = check.format('YYYY-MM-DD');
         if (!postponedDates.includes(dateStr)) {
